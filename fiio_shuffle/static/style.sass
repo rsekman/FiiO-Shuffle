@@ -1,0 +1,93 @@
+$bg: #2c2c2e
+$fg: #b2b2b2
+$gy: #3a3a3a
+$cy: #87afaf
+$mg: #d78787
+$tx: #040404
+$gn: #88b090
+$rd: #e89393
+$dk: #262626
+$yw: #ccdc90
+
+$layout-breakpoint-small: 960px
+$ftdsk: 16pt
+$ftmob: 14pt
+
+@media (min-width: $layout-breakpoint-small)
+    body
+        font-size: $ftdsk
+    #container
+        width: 75vh
+        margin-left: auto
+        margin-right: auto
+
+@media (max-device-width: $layout-breakpoint-small) and (-webkit-min-device-pixel-ratio: 2), (max-device-width: $layout-breakpoint-small) and (-webkit-min-device-pixel-ratio: 3), (max-width: $layout-breakpoint-small)
+    body
+        font-size: $ftmob
+    #container
+        width: 100%
+        margin-left: 10px
+        margin-right: 10px
+
+body
+    background-color: $bg
+    color: $fg
+    margin: 0px
+
+    font-style: normal
+    font-variant: normal
+    font-weight: normal
+
+#container
+    display: block
+    margin-top: 12px
+    max-width: 45em
+
+#caption, #refresh
+    width: 100%
+    display: block
+    text-align: center
+    margin-right: auto
+    margin-left: auto
+
+#caption
+    margin-top: .5em
+
+.by
+    font-size: 100%
+.title, .artist, .year
+    font-size: 175%
+.title, .artist
+    font-weight: bold
+    color: $cy
+
+#cover
+    margin-left: 5px
+    margin-right: 5px
+
+$cvrwd: 75vh
+
+#cover > img
+    max-width: $cvrwd
+    max-height: $cvrwd
+    width: 100%
+    height: auto !important
+    margin-top: .5em
+    margin-bottom: .5em
+
+#refresh
+    width: .9*$cvrwd
+    max-width: 95%
+    background-color: $gn
+    color: $fg
+    border: 2px solid $gn
+    border-radius: 1em
+    a
+        font-weight: bold
+        text-decoration-line: none
+        color: $bg
+
+
+h1
+    margin-top: 0em
+    margin-bottom: 0em

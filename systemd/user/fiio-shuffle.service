@@ -1,0 +1,12 @@
+[Unit]
+Description=Web interface for FiiO Shuffle
+
+[Service]
+ExecStart=uwsgi --ini /etc/uwsgi/fiio-shuffle.ini
+Environment="XDG_CONFIG_HOME=%h/.config"
+Environment="XDG_DATA_HOME=%h/.local/share"
+Restart=on-failure
+RestartSec=60
+
+[Install]
+WantedBy=default.target
