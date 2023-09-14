@@ -1,0 +1,32 @@
+[build-system]
+
+requires = [
+    "setuptools >= 42",
+    "versioningit",
+    "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.versioningit]
+method = "git"
+
+[project]
+name = "FiiO-shuffle"
+dynamic = ["version"]
+authors = [
+  { name="Robin Ekman", email="robin.seth.ekman@gmail.com" },
+]
+description = "Utility for picking a random album from my FiiO music player, since it cannot do this on its own"
+readme = "README.md"
+license = { file="LICENSE" }
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+[project.scripts]
+fiio_shuffle = "fiio_shuffle:main"
+
+[project.urls]
+"Homepage" = "https://github.com/rsekman/FiiO-shuffle"
+"Bug Tracker" = "https://github.com/rsekman/FiiO-shuffle/issues"
