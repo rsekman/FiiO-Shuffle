@@ -3,12 +3,13 @@ import magic
 from pathlib import Path
 from random import randint
 from sqlalchemy import func, select
+from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from .db import with_db
-from .models import Album, Cover, Offer
+from .models import Album, Cover, Offer, Playlist
 from .utils import get_data_dir, JSONResponse, JSONResponseError
 
 
@@ -16,15 +17,12 @@ from .utils import get_data_dir, JSONResponse, JSONResponseError
 def get_random_album(db, session):
     n_albums = session.query(func.count(Album.id)).scalar()
     if n_albums == 0:
-        return (0, None)
-    id_max = session.query(func.max(Album.id)).scalar()
-    album = None
-    while album is None:
-        r = randint(1, id_max)
-        q = select(Album).options(joinedload(Album.cover)).where(Album.id == r)
-        album = session.execute(q).scalar()
+        return None
 
-    return (n_albums, album)
+    q = q.group_by(Album.id).order_by(func.random()).limit(1)
+    album = session.execute(q).scalar()
+
+    return album
 
 
 @with_db
@@ -33,7 +31,16 @@ def process_offers(json, request, db, session):
     # that the client should upload with a simple SQL statement.
     # The database engine will optimise for us!
     try:
-        temp_albs = [Offer(**a) for a in request.json["albums"]]
+        temp_albs = [
+            Offer(
+                artist=a["artist"],
+                title=a["title"],
+                year=a["year"],
+                timestamp=datetime.fromtimestamp(a["timestamp"]),
+                playlist_uuid=UUID(a["playlist_uuid"])
+            )
+            for a in request.json["albums"]
+        ]
     except KeyError as e:
         return JSONResponseError(f"Invalid data: {e}")
 
@@ -54,6 +61,31 @@ def process_offers(json, request, db, session):
             | (Offer.timestamp > Cover.added)
         )
     )
+    create_albums = [
+        {
+            "artist": a["artist"],
+            "title": a["title"],
+            "year": a["year"],
+            "added": datetime.fromtimestamp(a["timestamp"]),
+        }
+        for a in request["albums"]
+    ]
+    stmt = insert(Album).values(create_albums).on_conflict_do_nothing()
+    session.execute(stmt)
+
+    albs = (
+        select(Album, Playlist)
+        .join(
+            Offer,
+            (Album.artist == Offer.artist)
+            & (Album.title == Offer.title)
+            & (Album.year == Offer.year),
+        )
+        .join(Playlist, (Playlist.uuid == Offer.playlist_uuid))
+    )
+    for a in session.execute(albs):
+        if a.Playlist not in a.Album.playlists:
+            a[0].playlists.append(a.Playlist)
     out = [
         {
             "artist": a.artist,
@@ -62,12 +94,26 @@ def process_offers(json, request, db, session):
         }
         for a in session.execute(q)
     ]
+    session.commit()
 
     return JSONResponse({"albums": out}, True)
 
 
+@with_db
+def process_playlists(json, request, db, session):
+    try:
+        pls = request.json["playlists"]
+        uuids = [{"uuid": UUID(pl["uuid"]), "title": pl["title"]} for pl in pls]
+    except (KeyError, ValueError) as e:
+        return JSONResponseError(f"Invalid data: {e}")
+    stmt = insert(Playlist).values(uuids).on_conflict_do_nothing()
+    session.execute(stmt)
+    session.commit()
+    return JSONResponse({}, True)
+
+
 def _album_from_data(data, session):
-    now = int(datetime.now().timestamp())
+    now = datetime.now()
     q = select(Album).where(
         (Album.artist == data["artist"])
         & (Album.title == data["title"])
@@ -78,8 +124,9 @@ def _album_from_data(data, session):
 
 
 @with_db
-def upload_cover(json, request, db, session):
+def upload_cover(metadata, request, db, session):
     # Validate the cover before running any DB queries
+    metadata = metadata["data"]
     try:
         cover_file = request.files["cover"]
         buf = cover_file.read(2048)
@@ -102,7 +149,7 @@ def upload_cover(json, request, db, session):
         return JSONResponseError("")
 
     ext = Path(cover_file.filename).suffix
-    now = int(datetime.now().timestamp())
+    now = datetime.now()
     cover = Cover(added=now, uuid=str(uuid4()), extension=ext)
     session.add(cover)
     album.cover = cover

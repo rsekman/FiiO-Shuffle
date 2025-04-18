@@ -1,0 +1,7 @@
+python-magic
+mutagen
+flask
+flask-assets
+sqlalchemy>=1.4
+requests
+versioningit

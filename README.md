@@ -8,9 +8,10 @@ It's not as convenient as the automatic shuffle by album the iPod (RIP) had, but
 
 ## Operation in detail
 
-The client recursively scans a directory for music files. When it finds a music file, it tries to read the *album key*, which is the triple `(artist, album, year)` from its tags.
-The client looks for `cover.jpg` in the same directory and records its mtime.
-It offers its list of `(artist, album, year, mtime)` tuples to the server.
+The client scans a directory for Deadbeef playlists (`*.dbpl`).
+When it finds one, it reads the *album key*, which is the triple `(artist, album, year)` from each file in the playlist.
+The client finds the cover, if any, for an album key and records its mtime.
+It offers its list of `(playlist_title, artist, album, year, mtime)` tuples to the server.
 The server *accepts* album keys that are new to it, or for which it has an `mtime` older than the client's and replies with the list of accepted keys.
 The client then submits the cover art for all accepted albums, the server saves the files and updates the database accordingly.
 

@@ -1,0 +1,64 @@
+Metadata-Version: 2.4
+Name: FiiO-shuffle
+Version: 0.0.1.post2+gc718542.d20250418
+Summary: Utility for picking a random album from my FiiO music player, since it cannot do this on its own
+Author-email: Robin Ekman <robin.seth.ekman@gmail.com>
+License: MIT License
+        
+        Copyright (c) 2023 Robin Ekman
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/rsekman/FiiO-shuffle
+Project-URL: Bug Tracker, https://github.com/rsekman/FiiO-shuffle/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: python-magic
+Requires-Dist: mutagen
+Requires-Dist: flask
+Requires-Dist: flask-assets
+Requires-Dist: sqlalchemy>=1.4
+Requires-Dist: requests
+Requires-Dist: versioningit
+Dynamic: license-file
+
+# FiiO Shuffle
+
+My FiiO M3 portable music player is great, but it lacks an essential feature: shuffle by album.
+I wrote this little program to fix that.
+It consists of a *server* component that serves a web page showing a random album from a database, as well as a *client* component that submits albums and their covers to the database.
+Running the server on my Raspberry Pi I can always pull up a random album by just refreshing a web page.
+It's not as convenient as the automatic shuffle by album the iPod (RIP) had, but until and unless I can hack the FiiO firmware it's what I've got.
+
+## Operation in detail
+
+The client scans a directory for Deadbeef playlists (`*.dbpl`).
+When it finds one, it reads the *album key*, which is the triple `(artist, album, year)` from each file in the playlist.
+The client finds the cover, if any, for an album key and records its mtime.
+It offers its list of `(playlist_title, artist, album, year, mtime)` tuples to the server.
+The server *accepts* album keys that are new to it, or for which it has an `mtime` older than the client's and replies with the list of accepted keys.
+The client then submits the cover art for all accepted albums, the server saves the files and updates the database accordingly.
+
+Communication is by JSON over HTTP.
+Offers and uploads require authentication with a key.
+Offers are batched with a configurable batch size (default: 100).

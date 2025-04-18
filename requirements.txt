@@ -1,6 +1,0 @@
-magic
-mutagen
-flask
-flask-assets
-sqlalchemy>=2.0
-requests

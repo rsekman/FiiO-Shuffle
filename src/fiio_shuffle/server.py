@@ -4,7 +4,7 @@ from flask_assets import Environment, Bundle
 from functools import wraps
 from json import loads
 
-from .controllers import get_random_album, process_offers, upload_cover
+from .controllers import get_random_album, process_offers, upload_cover, process_playlists
 from .config import config
 from .utils import get_data_dir, JSONResponseError
 
@@ -28,6 +28,24 @@ def send_static(path):
 def index():
     album = get_random_album()
     return render_template("index.html.jinja", album=album[1])
+
+
+@server.route("/album", methods=["POST"])
+def random_album():
+    pls = request.json.get("playlists", [])
+    try:
+        album = get_random_album(pls)
+    except Exception as e:
+        return JSONResponseError(f"Error: {e}")
+    if album is None:
+        return JSONResponseError(f"No albums found")
+
+    return JSONResponse({
+        "artist": album.artist,
+        "title": album.title,
+        "year": album.year,
+        "cover": str(album.cover.uuid) + album.cover.extension
+    })
 
 
 def needs_auth(f):
@@ -59,6 +77,11 @@ def needs_auth(f):
 @needs_auth
 def offer():
     return process_offers(request.json, request)
+
+@server.route("/playlists", methods=["POST"])
+@needs_auth
+def playlists():
+    return process_playlists(request.json, request)
 
 
 @server.route("/upload", methods=["POST"])

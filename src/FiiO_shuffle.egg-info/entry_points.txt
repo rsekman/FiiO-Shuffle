@@ -1,0 +1,2 @@
+[console_scripts]
+fiio_shuffle = fiio_shuffle:main
