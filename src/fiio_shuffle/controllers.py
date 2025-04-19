@@ -1,24 +1,37 @@
 from datetime import datetime
-import magic
 from pathlib import Path
 from random import randint
+from uuid import UUID, uuid4
+
+import magic
 from sqlalchemy import func, select
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
-from uuid import UUID, uuid4
 
 from .db import with_db
 from .models import Album, Cover, Offer, Playlist
-from .utils import get_data_dir, JSONResponse, JSONResponseError
+from .utils import JSONResponse, JSONResponseError, get_data_dir
 
 
 @with_db
-def get_random_album(db, session):
+def get_all_playlists(db, session):
+    s = select(Playlist)
+    return list(session.execute(s).scalars())
+
+
+@with_db
+def get_random_album(playlists, db, session):
     n_albums = session.query(func.count(Album.id)).scalar()
     if n_albums == 0:
         return None
 
+    id_max = session.query(func.max(Album.id)).scalar()
+    uuids = [UUID(pl) for pl in playlists]
+
+    q = select(Album).options(joinedload(Album.cover)).join(Album.playlists)
+    if len(uuids) != 0:
+        q = q.filter(Playlist.uuid.in_( uuids))
     q = q.group_by(Album.id).order_by(func.random()).limit(1)
     album = session.execute(q).scalar()
 
@@ -26,7 +39,7 @@ def get_random_album(db, session):
 
 
 @with_db
-def process_offers(json, request, db, session):
+def process_offers(request, db, session):
     # We insert the offered albums into a temporary table so we can select the ones
     # that the client should upload with a simple SQL statement.
     # The database engine will optimise for us!
@@ -37,9 +50,9 @@ def process_offers(json, request, db, session):
                 title=a["title"],
                 year=a["year"],
                 timestamp=datetime.fromtimestamp(a["timestamp"]),
-                playlist_uuid=UUID(a["playlist_uuid"])
+                playlist_uuid=UUID(a["playlist_uuid"]),
             )
-            for a in request.json["albums"]
+            for a in request["albums"]
         ]
     except KeyError as e:
         return JSONResponseError(f"Invalid data: {e}")
@@ -86,6 +99,7 @@ def process_offers(json, request, db, session):
     for a in session.execute(albs):
         if a.Playlist not in a.Album.playlists:
             a[0].playlists.append(a.Playlist)
+            print(a[0].playlists)
     out = [
         {
             "artist": a.artist,
@@ -100,9 +114,9 @@ def process_offers(json, request, db, session):
 
 
 @with_db
-def process_playlists(json, request, db, session):
+def process_playlists(request, db, session):
     try:
-        pls = request.json["playlists"]
+        pls = request["playlists"]
         uuids = [{"uuid": UUID(pl["uuid"]), "title": pl["title"]} for pl in pls]
     except (KeyError, ValueError) as e:
         return JSONResponseError(f"Invalid data: {e}")
@@ -128,7 +142,6 @@ def upload_cover(metadata, request, db, session):
     # Validate the cover before running any DB queries
     metadata = metadata["data"]
     try:
-        cover_file = request.files["cover"]
         buf = cover_file.read(2048)
         cover_file.seek(0)
         mime_type = magic.from_buffer(buf, mime=True)
@@ -139,10 +152,8 @@ def upload_cover(metadata, request, db, session):
     except ValueError:
         return JSONResponseError(f"Cover is not an image, but of MIME type {mime_type}")
 
-    if "data" not in json.keys():
-        return JSONResponseError("No data provided!")
     try:
-        album = _album_from_data(json["data"], session)
+        album = _album_from_data(metadata, session)
     except (KeyError, TypeError) as e:
         return JSONResponseError(f"Invalid data: {e}.")
     if album is None:
@@ -150,12 +161,12 @@ def upload_cover(metadata, request, db, session):
 
     ext = Path(cover_file.filename).suffix
     now = datetime.now()
-    cover = Cover(added=now, uuid=str(uuid4()), extension=ext)
+    cover = Cover(added=now, uuid=uuid4(), extension=ext)
     session.add(cover)
     album.cover = cover
     session.add(album)
     try:
-        cover_file.save((get_data_dir() / "covers" / cover.uuid).with_suffix(ext))
+        cover_file.save((get_data_dir() / "covers" / str(cover.uuid)).with_suffix(ext))
         session.commit()
     except (FileNotFoundError, IOError) as e:
         return JSONResponseError(f"Could not save cover file: {e}")

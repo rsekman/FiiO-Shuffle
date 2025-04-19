@@ -1,8 +1,9 @@
 from logging import error
 from os import makedirs
+from sys import exit
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from sys import exit
 
 from .config import config
 from .models import Base

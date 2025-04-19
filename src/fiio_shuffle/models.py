@@ -1,19 +1,20 @@
+from datetime import datetime
+from typing import List, Optional
+from uuid import UUID
+
 from sqlalchemy import (
-    ForeignKey,
-    UniqueConstraint,
     Column,
+    ForeignKey,
     Integer,
-    Uuid,
     Table,
+    UniqueConstraint,
+    Uuid,
 )
 from sqlalchemy.orm import (
-    declarative_base,
     Mapped,
+    declarative_base,
     relationship,
 )
-from typing import Optional, List
-from datetime import datetime
-
 
 Base = declarative_base()
 
@@ -21,8 +22,8 @@ AlbumInPlaylist = Table(
     "albums_in_playlists",
     Base.metadata,
     Column("album_id", ForeignKey("albums.id")),
-    Column("playlist_id", ForeignKey("playlists.uuid")),
-    UniqueConstraint("album_id", "playlist_id"),
+    Column("playlist_uuid", ForeignKey("playlists.uuid")),
+    UniqueConstraint("album_id", "playlist_uuid"),
 )
 
 
@@ -49,7 +50,7 @@ class Cover(Base):
 
     id: Mapped[int] = Column(type_=Integer, primary_key=True)
     added: Mapped[datetime]
-    uuid: Mapped[str]
+    uuid: Mapped[UUID]
     extension: Mapped[str]
 
 
@@ -57,7 +58,7 @@ class Playlist(Base):
     __tablename__ = "playlists"
     __table_args__ = (UniqueConstraint("uuid"),)
 
-    uuid: Mapped[str] = Column(Uuid, primary_key=True)
+    uuid: Mapped[UUID] = Column(Uuid, primary_key=True)
     title: Mapped[str]
 
     albums: Mapped[List["Album"]] = relationship(

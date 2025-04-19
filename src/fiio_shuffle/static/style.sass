@@ -9,25 +9,18 @@ $rd: #e89393
 $dk: #262626
 $yw: #ccdc90
 
-$layout-breakpoint-small: 960px
+$mobile-width: 800px
 $ftdsk: 16pt
 $ftmob: 14pt
 
-@media (min-width: $layout-breakpoint-small)
-    body
-        font-size: $ftdsk
-    #container
-        width: 75vh
-        margin-left: auto
-        margin-right: auto
+@mixin desktop
+    @media (min-width: $mobile-width+1)
+      @content
 
-@media (max-device-width: $layout-breakpoint-small) and (-webkit-min-device-pixel-ratio: 2), (max-device-width: $layout-breakpoint-small) and (-webkit-min-device-pixel-ratio: 3), (max-width: $layout-breakpoint-small)
-    body
-        font-size: $ftmob
-    #container
-        width: 100%
-        margin-left: 10px
-        margin-right: 10px
+@mixin mobile
+    @media (max-width: $mobile-width)
+        @content
+
 
 body
     background-color: $bg
@@ -38,10 +31,109 @@ body
     font-variant: normal
     font-weight: normal
 
+    @include mobile
+        font-size: $ftmob
+    @include desktop
+        font-size: $ftdsk
+
 #container
-    display: block
-    margin-top: 12px
     max-width: 45em
+
+    @include desktop
+        display: grid
+        grid-template-areas: ". ." "content controls"
+        margin-top: 12px
+        width: 75vh
+        margin-left: auto
+        margin-right: auto
+    @include mobile
+        display: block
+        width: 95%
+        margin-left: 10px
+        margin-right: 10px
+
+#content
+    @include desktop
+        grid-area: content
+
+#controls
+    display: flex
+
+    padding: 5px
+
+    z-index: 20
+    background-color: $bg
+
+    height: 75vh
+    width: fit-content
+    max-height: calc(100vh - 2em)
+
+    @include mobile
+        position: fixed
+        top: 2em
+        right: 0
+
+        justify-content: flex-end
+
+        font-size: 150%
+        option
+            font-size: 150%
+    @include desktop
+        grid-area: controls
+        min-width: 15em
+        justify-content: center
+        padding-top: 20pt
+        form
+            width: 80%
+
+#controls.initial
+    @include mobile
+        transform: translateX(100%);
+    @include desktop
+        display: inline-flex
+
+#controls.shown
+    @include mobile
+        animation: slideInFromRight .5s ease-out forwards;
+
+#controls.hidden
+    @include mobile
+        animation: slideOutToRight .5s ease-out forwards;
+
+@keyframes slideInFromRight
+  from
+      transform: translateX(100%);
+      opacity: 0;
+  to
+      transform: translateX(0);
+      opacity: 1;
+
+@keyframes slideOutToRight
+  from
+      transform: translateX(0);
+      opacity: 1;
+  to
+      transform: translateX(100%);
+      opacity: 0;
+
+#playlists
+    height: fit-content
+    width: 100%
+    font-size: 100%
+
+#controls-toggle
+    @include desktop
+        display: none
+    @include mobile
+        display: flex
+
+    justify-content: right
+    a
+        font-size: 24pt
+        text-decoration: none
+        &:link
+            color: $cy
+
 
 #caption, #refresh
     width: 100%

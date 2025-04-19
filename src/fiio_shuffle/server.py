@@ -1,12 +1,18 @@
-from flask import Flask
-from flask import request, render_template, send_from_directory
-from flask_assets import Environment, Bundle
 from functools import wraps
 from json import loads
 
-from .controllers import get_random_album, process_offers, upload_cover, process_playlists
+from flask import Flask, render_template, request, send_from_directory
+from flask_assets import Bundle, Environment
+
 from .config import config
-from .utils import get_data_dir, JSONResponseError
+from .controllers import (
+    get_all_playlists,
+    get_random_album,
+    process_offers,
+    process_playlists,
+    upload_cover,
+)
+from .utils import JSONResponse, JSONResponseError, get_data_dir
 
 data_dir = get_data_dir()
 static_dir = data_dir / ".webstatic"
@@ -26,8 +32,10 @@ def send_static(path):
 
 @server.route("/")
 def index():
-    album = get_random_album()
-    return render_template("index.html.jinja", album=album[1])
+    album = get_random_album([])
+    playlists = get_all_playlists()
+    print(playlists)
+    return render_template("index.html", album=album, playlists=playlists)
 
 
 @server.route("/album", methods=["POST"])
@@ -76,20 +84,22 @@ def needs_auth(f):
 @server.route("/offer", methods=["POST"])
 @needs_auth
 def offer():
-    return process_offers(request.json, request)
+    return process_offers(request.json)
+
 
 @server.route("/playlists", methods=["POST"])
 @needs_auth
 def playlists():
-    return process_playlists(request.json, request)
+    return process_playlists(request.json)
 
 
 @server.route("/upload", methods=["POST"])
 @needs_auth
 def upload():
     try:
-        json = loads(request.files["metadata"].read())
-        return upload_cover(json, request)
+        metadata = loads(request.files["metadata"].read())
+        cover_file = request.files["cover"]
+        return upload_cover(cover_file, metadata)
     except KeyError:
         return JSONResponseError(
             "Invalid request: no metadata provided",

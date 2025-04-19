@@ -1,0 +1,96 @@
+ <!DOCTYPE html>
+<html lang="en-GB">
+    <head>
+        <title>Random Album</title>
+        <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+        <meta name="description" content="Random Album from FiiO" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" />
+        {% assets "css" -%}
+            <link rel="stylesheet" type="text/css" href="/{{ ASSET_URL }} ">
+        {%- endassets %}
+        <script>
+            function get_album() {
+                const form = document.querySelector("#form");
+                console.log(form);
+                const formData = new FormData(form)
+                console.log(formData);
+                const pls = formData.getAll("playlists");
+                data = { "playlists": pls };
+                fetch("/album", {
+                    method: "POST",
+                    mode: "cors",
+                    headers: {
+                        Accept: "application/json",
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(data),
+                })
+                    .then((res) => {
+                        return res.json()
+                    })
+                    .then((data) => {
+                        if ( data["success"] ) {
+                            update_display(data);
+                        }
+                    });
+            }
+            function update_display(data) {
+                console.log(data);
+                var cover_img = document.querySelector("#cover_img");
+                cover_img["src"] = "covers/" + data["cover"];
+                var title_span = document.querySelector("span#title");
+                title_span.textContent = data["title"];
+                var artist_span = document.querySelector("span#artist");
+                artist_span.textContent = data["artist"];
+                var year_span = document.querySelector("span#year");
+                year_span.textContent = data["year"];
+            }
+            function toggle_controls() {
+                const ctrls = document.querySelector("#controls");
+                const clss = ctrls.classList;
+                if (clss.contains("shown")) {
+                    clss.replace("shown", "hidden");
+                } else if (clss.contains("hidden"))  {
+                    clss.replace("hidden", "shown");
+                } else {
+                    clss.replace("initial", "shown");
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <div id="container">
+            <div id="controls-toggle">
+                <a href="javascript:toggle_controls()">&#x2699;</a>
+            </div>
+            <div id="content">
+                <div id="caption">
+                    <span id="title" class="title">{{album.title}}</span>
+                    <span id="year" class="year">&nbsp;({{album.year}})</span>
+                    <br />
+                    <span class="by">by</span>
+                    <br />
+                    <span id="artist" class="artist">{{album.artist}}</span>
+                </div>
+                <div id="cover">
+                    <img src="covers/{{(album.cover.uuid | string) + album.cover.extension}}" id="cover_img" />
+                </div>
+                <div id="refresh">
+                    <a href="javascript:get_album()">Reroll</a>
+                </div>
+            </div>
+            <div id="controls" class="initial">
+                <form id="form">
+                    <label for="playlists">Draw from playlists</label>
+                    <br />
+                    <select multiple="true" id="playlists" name="playlists" size="{{ playlists | length }}">
+                        {% for pl in playlists -%}
+                            <option value="{{ pl["uuid"] }}">{{ pl.title }}</option>
+                        {%- endfor %}
+                    </select>
+                </form>
+            </div>
+        </div>
+    </body>
+</html>

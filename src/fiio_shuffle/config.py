@@ -1,11 +1,11 @@
 from importlib.resources import files
-from json import dump, load, JSONDecodeError
+from json import JSONDecodeError, dump, load
 from logging import error, warning
 from os import umask
 from secrets import token_hex
 from sys import exit
 
-from .utils import get_config_dir, deep_update
+from .utils import deep_update, get_config_dir
 
 
 class Config:

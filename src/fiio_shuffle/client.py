@@ -2,12 +2,13 @@ from collections import namedtuple
 from itertools import batched
 from json import dumps
 from logging import error
-import dbpl
 from pathlib import Path
-from requests import post
-from requests.exceptions import ConnectionError, HTTPError, Timeout, TooManyRedirects
 from sys import exit
 from uuid import uuid4
+
+import dbpl
+from requests import post
+from requests.exceptions import ConnectionError, HTTPError, Timeout, TooManyRedirects
 
 from .config import config
 
@@ -124,7 +125,7 @@ def _offer_and_upload(url, candidates):
             if j["success"]:
                 print("Success.")
             else:
-                print(f"Error: {j['error']}")
+                print(f"Error: {j['message']}")
 
 
 def _submit_playlists(url, pls):

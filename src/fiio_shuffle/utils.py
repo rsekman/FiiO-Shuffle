@@ -1,7 +1,8 @@
+from json import dumps
 from os import environ
 from pathlib import Path
+
 from flask import Response
-from json import dumps
 
 
 def get_data_dir():
@@ -20,12 +21,9 @@ def get_config_dir():
     return xdg_data_home / "FiiO-shuffle"
 
 
-def JSONResponse(j, success=None):
-    if success is not None:
-        out = {"success": success}
-        out |= j
-    else:
-        out = j
+def JSONResponse(j, success=True):
+    out = {"success": success}
+    out |= j
     return Response(dumps(out), mimetype="application/json")
 
 
