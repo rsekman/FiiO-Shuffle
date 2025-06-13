@@ -73,9 +73,11 @@
                     <br />
                     <span id="artist" class="artist">{{album.artist}}</span>
                 </div>
+                {% if album.cover %}
                 <div id="cover">
                     <img src="covers/{{(album.cover.uuid | string) + album.cover.extension}}" id="cover_img" />
                 </div>
+                {% endif %}
                 <div id="refresh">
                     <a href="javascript:get_album()">Reroll</a>
                 </div>

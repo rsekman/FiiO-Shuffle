@@ -39,12 +39,21 @@ def _find_albums_in_playlist(pl):
     print(f"Finding albums from {pl.meta['title']}...", end="", flush=True)
     albums = {}
     uuid = pl.meta[UUID_KEY]
+
+    cover_names = ["cover.jpg", "folder.jpg"]
+
     for track in pl.tracks:
         meta = track.meta
         try:
-            cover_uri = Path(track.uri).parent / "cover.jpg"
-            if not cover_uri.exists():
+            cover_uri = None
+            for name in cover_names:
+                candidate = Path(track.uri).parent / name
+                if candidate.exists():
+                    cover_uri = candidate
+                    break
+            if cover_uri is None:
                 continue
+
             artist=meta.get("album artist", None) or meta["artist"]
             title=meta["album"]
             year=int((meta.get("year", None) or meta["date"])[:4])

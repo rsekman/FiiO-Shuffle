@@ -99,7 +99,6 @@ def process_offers(request, db, session):
     for a in session.execute(albs):
         if a.Playlist not in a.Album.playlists:
             a[0].playlists.append(a.Playlist)
-            print(a[0].playlists)
     out = [
         {
             "artist": a.artist,
@@ -138,7 +137,7 @@ def _album_from_data(data, session):
 
 
 @with_db
-def upload_cover(metadata, request, db, session):
+def upload_cover(cover_file, metadata, db, session):
     # Validate the cover before running any DB queries
     metadata = metadata["data"]
     try:

@@ -34,7 +34,6 @@ def send_static(path):
 def index():
     album = get_random_album([])
     playlists = get_all_playlists()
-    print(playlists)
     return render_template("index.html", album=album, playlists=playlists)
 
 
