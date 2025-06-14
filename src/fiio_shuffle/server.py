@@ -47,7 +47,7 @@ def random_album():
     except Exception as e:
         return JSONResponseError(f"Error: {e}")
     if album is None:
-        return JSONResponseError(f"No albums found")
+        return JSONResponseError("No albums found")
 
     return JSONResponse({
         "artist": album.artist,

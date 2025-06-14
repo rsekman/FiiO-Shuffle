@@ -1,6 +1,5 @@
 from datetime import datetime
 from pathlib import Path
-from random import randint
 from uuid import UUID, uuid4
 
 import magic
@@ -26,7 +25,6 @@ def get_random_album(playlists, db, session):
     if n_albums == 0:
         return None
 
-    id_max = session.query(func.max(Album.id)).scalar()
     uuids = [UUID(pl) for pl in playlists]
 
     q = select(Album).options(joinedload(Album.cover)).join(Album.playlists)
