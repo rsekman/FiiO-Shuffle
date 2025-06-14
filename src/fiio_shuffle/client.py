@@ -138,13 +138,15 @@ def _find_albums_in_playlist(pl):
     albums = {}
     uuid = pl.meta[UUID_KEY]
 
+    skip = set()
     for track in pl.tracks:
         try:
             key = _key(track)
-            if _key(track) in albums:
+            if key in albums or key in skip:
                 continue
             cover_uri = _find_cover(track)
             if cover_uri is None:
+                skip.add(key)
                 continue
 
             artist, title, year = key
