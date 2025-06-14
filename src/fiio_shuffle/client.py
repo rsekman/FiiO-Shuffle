@@ -41,7 +41,10 @@ def _key(track):
     meta = track.meta
     artist = meta.get("album artist", None) or meta["artist"]
     title = meta["album"]
-    year = int((meta.get("year", None) or meta["date"])[:4])
+    try:
+        year = int((meta.get("year", None) or meta["date"])[:4])
+    except ValueError as e:
+        raise ValueError(f"Could not determine year from date tag {meta['date']}: {e}")
     key = (artist, title, year)
     return key
 
@@ -161,6 +164,8 @@ def _find_albums_in_playlist(pl):
         except KeyError as e:
             logging.warn(f"{track.uri} does not contain key {e}, skipping")
             continue
+        except ValueError as e:
+            logging.warn(f"{track.uri}: could not determine key: {e}")
         albums[key] = entry
     logging.info(f"{pl.meta['title']}: found {len(albums)} albums.")
     yield from albums.items()
