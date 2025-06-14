@@ -5,6 +5,7 @@ from logging import error
 from pathlib import Path
 from sys import exit
 from uuid import uuid4
+import logging
 
 import dbpl
 from requests import post, get
@@ -27,7 +28,7 @@ def _find_playlists(root_dir):
             continue
         pl = dbpl.Playlist(f)
         if "title" not in pl.meta:
-            print(f"Playlist {f} does not have a title in its meta, skipping")
+            logging.warn(f"Playlist {f} does not have a title in its meta, skipping")
             continue
         if UUID_KEY not in pl.meta.keys():
             pl.meta[UUID_KEY] = str(uuid4())
@@ -79,13 +80,18 @@ def _get_cover_musicbrainz(track):
         title = meta["album"]
     except KeyError:
         return None
-    print(f"Downloading cover for {artist} - {title} from MusicBrainz")
+
+    log_prefix = f"{artist} - {title}"
+
+    logging.info(f"{log_prefix}: Downloading cover from MusicBrainz")
     mb_id_url = f'http://musicbrainz.org/ws/2/release-group/?query=artist:"{artist}" AND release:"{title}"'
     try:
         resp = get(mb_id_url)
         resp.raise_for_status()
     except HTTPError as e:
-        print(f"Could not get relase group id from MusicBrainz: {e}")
+        logging.warn(
+            f"{log_prefix}: Could not get relase group id from MusicBrainz: {e}"
+        )
         return None
 
     import xml.etree.ElementTree as ET
@@ -94,7 +100,7 @@ def _get_cover_musicbrainz(track):
     root = ET.fromstring(resp.text)
     release_group = root.find(".//m:release-group", ns)
     if release_group is None:
-        print(f"{artist} - {title} not found on MusicBrainz")
+        logging.warn(f"{log_prefix}: Release group not found on MusicBrainz")
         return None
     release_group_id = release_group.attrib["id"]
 
@@ -106,7 +112,7 @@ def _get_cover_musicbrainz(track):
         data = resp.json()
         uri = data["images"][0]["image"]
     except (HTTPError, KeyError, IndexError) as e:
-        print(f"Could not get cover from Cover Art Archive: {e}")
+        logging.warn(f"{log_prefix}: Could not get cover from Cover Art Archive: {e}")
         return None
 
     try:
@@ -121,12 +127,14 @@ def _get_cover_musicbrainz(track):
             for chunk in resp.iter_content(chunk_size=8192):
                 f.write(chunk)
     except (HTTPError, IOError) as e:
-        print(f"Could not download cover from Cover Art Archive ({uri}): {e}")
+        logging.warn(
+            f"{log_prefix}: Could not download cover from Cover Art Archive ({uri}): {e}"
+        )
     return cache_uri
 
 
 def _find_albums_in_playlist(pl):
-    print(f"Finding albums from {pl.meta['title']}...", end="", flush=True)
+    logging.info(f"{pl.meta['title']}: Finding albums")
     albums = {}
     uuid = pl.meta[UUID_KEY]
 
@@ -149,10 +157,10 @@ def _find_albums_in_playlist(pl):
                 playlist_uuid=uuid,
             )
         except KeyError as e:
-            print(f"{track.uri} does not contain key {e}, skipping")
+            logging.warn(f"{track.uri} does not contain key {e}, skipping")
             continue
         albums[key] = entry
-    print(f" found {len(albums)} albums.")
+    logging.info(f"{pl.meta['title']}: found {len(albums)} albums.")
     yield from albums.items()
 
 
@@ -171,7 +179,7 @@ def _make_key(a):
 
 def _offer_and_upload(url, candidates):
     offer = _construct_offer(candidates)
-    print(f"Offering {len(candidates)} candidates...", end=" ", flush=True)
+    logging.info(f"Offering {len(candidates)} candidates")
     try:
         resp = post(url + "/offer", json=offer)
         resp.raise_for_status()
@@ -187,11 +195,7 @@ def _offer_and_upload(url, candidates):
         error(f"Unsuccessful offer: {message}.")
         return
     albums = json.get("albums", [])
-    print(f"{len(albums)} albums accepted.", end=" ")
-    if len(albums):
-        print("Uploading...")
-    else:
-        print("")
+    logging.info(f"{len(albums)} albums accepted.")
     candidates = {k: v for k, v in candidates}
     for a in albums:
         try:
@@ -203,19 +207,19 @@ def _offer_and_upload(url, candidates):
             ("metadata", ("metadata.json", dumps(metadata))),
             ("cover", ("cover.jpg", o.cover_uri.open("rb"))),
         ]
-        print(f"Uploading {a['artist']} - {a['title']} ({a['year']})...", end="")
         try:
             r = post(url + "/upload", files=files)
             r.raise_for_status()
         except (ConnectionError, Timeout, TooManyRedirects, HTTPError) as e:
             error(e)
-            print("")
         else:
             j = r.json()
             if j["success"]:
-                print("Success.")
+                logging.info(f"Uploaded {a['artist']} - {a['title']} ({a['year']})")
             else:
-                print(f"Error: {j['message']}")
+                logging.warn(
+                    f"Could not upload {a['artist']} - {a['title']} ({a['year']}): {j['message']}"
+                )
 
 
 def _submit_playlists(url, pls):
@@ -241,7 +245,7 @@ def run_client(root, url):
         {"title": pl.meta["title"], "uuid": pl.meta[UUID_KEY]} for pl in pls
     ]
     _submit_playlists(url, pl_submissions)
-    print("Submitted playlists")
+    logging.info(f"Submitted {len(pl_submissions)} playlists")
     for pl in pls:
         for candidate_batch in batched(
             _find_albums_in_playlist(pl), config["batch_size"]

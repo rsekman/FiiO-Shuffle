@@ -1,6 +1,12 @@
 from argparse import ArgumentParser
 
 argparser = ArgumentParser("FiiO-shuffle")
+argparser.add_argument(
+    '--log',
+    default='WARNING',
+    choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+    help='Set the logging level'
+)
 subparsers = argparser.add_subparsers(title="Tasks", required=True, dest="task")
 
 server_parser = subparsers.add_parser(
