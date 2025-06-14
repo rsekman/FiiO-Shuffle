@@ -13,6 +13,11 @@ def get_data_dir():
     return xdg_data_home / "FiiO-shuffle"
 
 
+def get_cache_dir():
+    cache_dir = Path.home() / ".cache"
+    return cache_dir / "FiiO-shuffle"
+
+
 def get_config_dir():
     try:
         xdg_data_home = Path(environ["XDG_CONFIG_HOME"])

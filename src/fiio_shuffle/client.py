@@ -7,10 +7,11 @@ from sys import exit
 from uuid import uuid4
 
 import dbpl
-from requests import post
+from requests import post, get
 from requests.exceptions import ConnectionError, HTTPError, Timeout, TooManyRedirects
 
 from .config import config
+from .utils import get_cache_dir
 
 UUID_KEY = "fiio_shuffle_uuid"
 
@@ -35,31 +36,110 @@ def _find_playlists(root_dir):
     return pls
 
 
+def _key(track):
+    meta = track.meta
+    artist = meta.get("album artist", None) or meta["artist"]
+    title = meta["album"]
+    year = int((meta.get("year", None) or meta["date"])[:4])
+    key = (artist, title, year)
+    return key
+
+
+def _cached_cover_uri(track):
+    from hashlib import sha1
+
+    s = sha1()
+    s.update(str(_key(track)).encode())
+    cache_uri = get_cache_dir() / s.hexdigest()
+    return cache_uri
+
+
+def _find_cover(track):
+    cover_names = ["cover.jpg", "folder.jpg"]
+    for name in cover_names:
+        candidate = Path(track.uri).parent / name
+        if candidate.exists():
+            return candidate
+
+    cache_uri = _cached_cover_uri(track)
+    if cache_uri.exists():
+        return cache_uri
+
+    from_mb = _get_cover_musicbrainz(track)
+    if from_mb is not None:
+        return from_mb
+
+    return None
+
+
+def _get_cover_musicbrainz(track):
+    try:
+        meta = track.meta
+        artist = meta.get("album artist", None) or meta["artist"]
+        title = meta["album"]
+    except KeyError:
+        return None
+    print(f"Downloading cover for {artist} - {title} from MusicBrainz")
+    mb_id_url = f'http://musicbrainz.org/ws/2/release-group/?query=artist:"{artist}" AND release:"{title}"'
+    try:
+        resp = get(mb_id_url)
+        resp.raise_for_status()
+    except HTTPError as e:
+        print(f"Could not get relase group id from MusicBrainz: {e}")
+        return None
+
+    import xml.etree.ElementTree as ET
+
+    ns = {"m": "http://musicbrainz.org/ns/mmd-2.0#"}
+    root = ET.fromstring(resp.text)
+    release_group = root.find(".//m:release-group", ns)
+    if release_group is None:
+        print(f"{artist} - {title} not found on MusicBrainz")
+        return None
+    release_group_id = release_group.attrib["id"]
+
+    mb_art_url = f"http://coverartarchive.org/release-group/{release_group_id}/"
+
+    resp = get(mb_art_url)
+    try:
+        resp.raise_for_status()
+        data = resp.json()
+        uri = data["images"][0]["image"]
+    except (HTTPError, KeyError, IndexError) as e:
+        print(f"Could not get cover from Cover Art Archive: {e}")
+        return None
+
+    try:
+        resp = get(uri)
+        resp.raise_for_status()
+
+        cache_uri = _cached_cover_uri(track)
+        from os import makedirs
+
+        makedirs(cache_uri.parent, exist_ok=True)
+        with cache_uri.open("wb") as f:
+            for chunk in resp.iter_content(chunk_size=8192):
+                f.write(chunk)
+    except (HTTPError, IOError) as e:
+        print(f"Could not download cover from Cover Art Archive ({uri}): {e}")
+    return cache_uri
+
+
 def _find_albums_in_playlist(pl):
     print(f"Finding albums from {pl.meta['title']}...", end="", flush=True)
     albums = {}
     uuid = pl.meta[UUID_KEY]
 
-    cover_names = ["cover.jpg", "folder.jpg"]
-
     for track in pl.tracks:
-        meta = track.meta
         try:
-            cover_uri = None
-            for name in cover_names:
-                candidate = Path(track.uri).parent / name
-                if candidate.exists():
-                    cover_uri = candidate
-                    break
+            key = _key(track)
+            if _key(track) in albums:
+                continue
+            cover_uri = _find_cover(track)
             if cover_uri is None:
                 continue
 
-            artist=meta.get("album artist", None) or meta["artist"]
-            title=meta["album"]
-            year=int((meta.get("year", None) or meta["date"])[:4])
-            key = (artist, title, year)
-            if key in albums:
-                continue
+            artist, title, year = key
             entry = AlbumEntry(
                 artist=artist,
                 title=title,
@@ -78,7 +158,8 @@ def _find_albums_in_playlist(pl):
 
 def _construct_offer(data):
     data = [
-        {k: v for k, v in d._asdict().items() if k not in ["cover_uri"]} for _, d in data
+        {k: v for k, v in d._asdict().items() if k not in ["cover_uri"]}
+        for _, d in data
     ]
     out = {"auth_key": config["auth_key"], "albums": data}
     return out
@@ -111,7 +192,7 @@ def _offer_and_upload(url, candidates):
         print("Uploading...")
     else:
         print("")
-    candidates = {k:v for k, v in candidates }
+    candidates = {k: v for k, v in candidates}
     for a in albums:
         try:
             o = candidates[_make_key(a)]
