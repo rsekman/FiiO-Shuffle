@@ -2,7 +2,9 @@ from functools import wraps
 from json import loads
 
 from flask import Flask, render_template, request, send_from_directory
-from flask_assets import Bundle, Environment
+import warnings
+with warnings.catch_warnings(action="ignore"):
+    from flask_assets import Bundle, Environment
 
 from .config import config
 from .controllers import (
