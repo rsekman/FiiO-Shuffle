@@ -15,7 +15,7 @@ from .utils import JSONResponse, JSONResponseError, get_data_dir
 
 @with_db
 def get_all_playlists(db, session):
-    s = select(Playlist)
+    s = select(Playlist).order_by(Playlist.title)
     return list(session.execute(s).scalars())
 
 
