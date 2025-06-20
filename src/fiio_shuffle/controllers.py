@@ -3,13 +3,13 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import magic
-from sqlalchemy import func, select
+from sqlalchemy import func, select, delete
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
 from .db import with_db
-from .models import Album, Cover, Offer, Playlist
+from .models import Album, AlbumInPlaylist, Cover, Offer, Playlist
 from .utils import JSONResponse, JSONResponseError, get_data_dir
 
 
@@ -29,7 +29,7 @@ def get_random_album(playlists, db, session):
 
     q = select(Album).options(joinedload(Album.cover)).join(Album.playlists)
     if len(uuids) != 0:
-        q = q.filter(Playlist.uuid.in_( uuids))
+        q = q.filter(Playlist.uuid.in_(uuids))
     q = q.group_by(Album.id).order_by(func.random()).limit(1)
     album = session.execute(q).scalar()
 
@@ -113,13 +113,21 @@ def process_offers(request, db, session):
 @with_db
 def process_playlists(request, db, session):
     try:
-        pls = request["playlists"]
-        uuids = [{"uuid": UUID(pl["uuid"]), "title": pl["title"]} for pl in pls]
+        pls = [
+            {"uuid": UUID(pl["uuid"]), "title": pl["title"]}
+            for pl in request["playlists"]
+        ]
     except (KeyError, ValueError) as e:
         return JSONResponseError(f"Invalid data: {e}")
-    stmt = insert(Playlist).values(uuids).on_conflict_do_nothing()
+    stmt = insert(Playlist).values(pls).on_conflict_do_nothing()
     session.execute(stmt)
+
+    uuids = [pl["uuid"] for pl in pls]
+    stmt = delete(AlbumInPlaylist).where(AlbumInPlaylist.c.playlist_uuid.in_(uuids))
+    session.execute(stmt)
+
     session.commit()
+
     return JSONResponse({}, True)
 
 
