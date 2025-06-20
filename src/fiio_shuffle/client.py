@@ -59,11 +59,21 @@ def _cached_cover_uri(track):
 
 
 def _find_cover(track):
-    cover_names = ["cover.jpg", "folder.jpg"]
+    exts = [".jpg", ".png"]
+    bases = ["cover", "Cover", "folder", "Folder", "front", "Front"]
+    cover_names = [b + e for e in exts for b in bases]
+    from magic import Magic
+    magic = Magic(mime = True)
     for name in cover_names:
         candidate = Path(track.uri).parent / name
-        if candidate.exists():
-            return candidate
+        # magic doesn't follow symlinks, so we have to resolve them ourselves
+        candidate = candidate.resolve()
+        try:
+            mime = magic.from_file(candidate)
+            if mime.startswith("image/"):
+                return candidate
+        except IOError:
+            continue
 
     cache_uri = _cached_cover_uri(track)
     if cache_uri.exists():
