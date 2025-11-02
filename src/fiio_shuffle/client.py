@@ -63,7 +63,8 @@ def _find_cover(track):
     bases = ["cover", "Cover", "folder", "Folder", "front", "Front"]
     cover_names = [b + e for e in exts for b in bases]
     from magic import Magic
-    magic = Magic(mime = True)
+
+    magic = Magic(mime=True)
     for name in cover_names:
         candidate = Path(track.uri).parent / name
         # magic doesn't follow symlinks, so we have to resolve them ourselves
@@ -101,7 +102,7 @@ def _get_cover_musicbrainz(track):
     try:
         resp = get(mb_id_url)
         resp.raise_for_status()
-    except HTTPError as e:
+    except (HTTPError, ConnectionError) as e:
         logging.warn(
             f"{log_prefix}: Could not get relase group id from MusicBrainz: {e}"
         )
@@ -119,12 +120,12 @@ def _get_cover_musicbrainz(track):
 
     mb_art_url = f"http://coverartarchive.org/release-group/{release_group_id}/"
 
-    resp = get(mb_art_url)
     try:
+        resp = get(mb_art_url)
         resp.raise_for_status()
         data = resp.json()
         uri = data["images"][0]["image"]
-    except (HTTPError, KeyError, IndexError) as e:
+    except (ConnectionError, HTTPError, KeyError, IndexError) as e:
         logging.warn(f"{log_prefix}: Could not get cover from Cover Art Archive: {e}")
         return None
 
@@ -139,10 +140,11 @@ def _get_cover_musicbrainz(track):
         with cache_uri.open("wb") as f:
             for chunk in resp.iter_content(chunk_size=8192):
                 f.write(chunk)
-    except (HTTPError, IOError) as e:
+    except (HTTPError, IOError, ConnectionError) as e:
         logging.warn(
             f"{log_prefix}: Could not download cover from Cover Art Archive ({uri}): {e}"
         )
+        return None
     return cache_uri
 
 
